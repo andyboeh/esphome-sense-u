@@ -11,7 +11,7 @@ So far, the BLE protocol is being reverse-engineered. No code for ESPHome has be
 The pairing procedure is actually just a configuration procedure. Judging from the BLE logs, there is no real pairing or encryption performed. Instead, the client connects to the device, configures it and enables notifications. The button sends notifications on all relevant events.
 
 ### Initialization
-
+```
 DATA_CHAR_1 = "01021921-9e06-a079-2e3f-ee6673f4b7a4"
 DATA_CHAR_2 = "01021922-9e06-a079-2e3f-ee6673f4b7a4"
 DATA_CHAR_3 = "01021923-9e06-a079-2e3f-ee6673f4b7a4"
@@ -31,9 +31,9 @@ RegisterType
 [9] 0x00
   * Recv Notification on DATA_CHAR_1 680061d5c56ba38c030000000000000000000000
   * Disconnect
-
+```
 ### First time connecting
-
+```
   * Connect
   * Enable Notification on all DATA_CHAR_?
   * Write 7061d5c56ba38c5a89753a00000000000000 on DATA_CHAR_1
@@ -114,15 +114,16 @@ nothing happens with that
   * Recv Notification on DATA_CHAR_2 411445d43a000020b82000200000000002000004
   * Recv Notification on DATA_CHAR_2 411445d500030021b82000200000000002000005
   * Recv Notification on DATA_CHAR_2 411445d503000020b82000200000000002000006
-
+```
 ## Disconnect
-
+```
   * Write f5d2320300000000000000000000000000000000 on DATA_CHAR_4
 Disables On_Alert -> this seems to switch it off
   * Recv Notification on DATA_CHAR_4 f500320300000000000000000000000000000000
   * Recv Notification on DATA_CHAR_2 415445d504ff0100b82000200200000005000007
-
+```
 ## Connect
+```
   * Write f5f2320300000000000000000000000000000000 on DATA_CHAR_4
 Enables On_Alert -> this seems to switch it on
   * Recv Notification auf DATA_CHAR_4 f500320300000000000000000000000000000000
@@ -131,4 +132,4 @@ Enables On_Alert -> this seems to switch it on
   * Write f5d2320300000000000000000000000000000000 auf DATA_CHAR_4
   * Recv Notification auf DATA_CHAR_4 f500320300000000000000000000000000000000
   * Recv Notification auf DATA_CHAR_2 415445d604ff0100b8200020020000000500000c
-
+```
