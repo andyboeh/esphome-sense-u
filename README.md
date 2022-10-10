@@ -4,11 +4,13 @@ This project aims to provide an ESPHome integration for the Sense-U baby monitor
 
 ## Status
 
-So far, the BLE protocol is being reverse-engineered. No code for ESPHome has been written yet.
+So far, the BLE protocol is being reverse-engineered. The available code allows for pairing and connecting, data parsing is still missing. Every reboot of the ESP requires re-pairing as the baby code / pairing status is not supported.
 
 ## Protocol
 
-The pairing procedure is actually just a configuration procedure. Judging from the BLE logs, there is no real pairing or encryption performed. Instead, the client connects to the device, configures it and enables notifications. The button sends notifications on all relevant events.
+The pairing procedure is actually just a configuration procedure. Judging from the BLE logs, there is no real pairing or encryption performed. Instead, the client connects to the device, registers a UID and receives a baby code. This code can then be used for configuring it. The button sends notifications on all relevant events.
+
+Attention: The last 8 bytes of all UUIDs are the device address!
 
 ### Initialization
 ```
@@ -30,6 +32,7 @@ RegisterType
 [8] 0x03
 [9] 0x00
   * Recv Notification on DATA_CHAR_1 680061d5c56ba38c030000000000000000000000
+[2-7] baby code, needs to be remembered and sent with 0x70 message
   * Disconnect
 ```
 ### First time connecting
@@ -38,7 +41,7 @@ RegisterType
   * Enable Notification on all DATA_CHAR_?
   * Write 7061d5c56ba38c5a89753a00000000000000 on DATA_CHAR_1
 [0] == 0x70 => ConnectionType (ReconnectionType)
--> Some kind of Code and the current timestamp (ms)
+-> The code received during pairing and the current timestamp (ms)
   * Recv Notification on DATA_CHAR_1 700000000000010001753a000000000000000000
 [0] == 0x70 && [1] == 0x00 => Connected Success
 [0] == 0x70 && [1] == 0x01 => Disconnected
