@@ -33,6 +33,9 @@ void SenseU::setup() {
   this->pref_ = global_preferences->make_preference<SenseUStorage>(hash, true);
   if(this->pref_.load(&this->pref_storage_)) {
     ESP_LOGD(TAG, "Successfully restored preferences");
+    ESP_LOGI(TAG, "Paired using baby code: %02x%02x%02x%02x%02x%02x",
+             this->pref_storage_.baby_code[0], this->pref_storage_.baby_code[1], this->pref_storage_.baby_code[2], 
+             this->pref_storage_.baby_code[3], this->pref_storage_.baby_code[4], this->pref_storage_.baby_code[5]);
   } else {
     this->pref_storage_.paired = false;
     this->pref_storage_.configured = false;
@@ -40,6 +43,24 @@ void SenseU::setup() {
   }
   if(this->status_) {
     this->status_->publish_state("Setting up");
+  }
+  if(this->baby_code_.length() == 12) {
+    this->pref_storage_.paired = true;
+    this->pref_storage_.configured = true;
+    for (int i = 0; i < this->baby_code_.length();) {
+      uint8_t msb = this->baby_code_.c_str()[i];
+      uint8_t lsb = this->baby_code_.c_str()[i + 1];
+
+      if (msb > '9')
+        msb -= 7;
+      if (lsb > '9')
+        lsb -= 7;
+      this->pref_storage_.baby_code[i/2] = ((msb & 0x0F) << 4) | (lsb & 0x0F);
+      i += 2;
+    }
+    ESP_LOGI(TAG, "Using preconfigured baby code: %02x%02x%02x%02x%02x%02x",
+             this->pref_storage_.baby_code[0], this->pref_storage_.baby_code[1], this->pref_storage_.baby_code[2], 
+             this->pref_storage_.baby_code[3], this->pref_storage_.baby_code[4], this->pref_storage_.baby_code[5]);
   }
 }
 
@@ -451,6 +472,9 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
             esp_ble_gap_disconnect(this->parent_->get_remote_bda());
             for(int i=0; i<6; i++)
                 this->pref_storage_.baby_code[i] = param->notify.value[i+2];
+            ESP_LOGI(TAG, "Paired using baby code: %02x%02x%02x%02x%02x%02x",
+                this->pref_storage_.baby_code[0], this->pref_storage_.baby_code[1], this->pref_storage_.baby_code[2], 
+                this->pref_storage_.baby_code[3], this->pref_storage_.baby_code[4], this->pref_storage_.baby_code[5]);
             this->store_preferences();
             //this->write_char(RECONNECTION_TYPE);
           }

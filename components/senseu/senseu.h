@@ -60,6 +60,7 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   void set_posture_alarm(binary_sensor::BinarySensor *posture_alarm ) { posture_alarm_ = posture_alarm; }
   void set_temperature_alarm(binary_sensor::BinarySensor *temperature_alarm) { temperature_alarm_ = temperature_alarm; }
   void set_power_switch(bool state);
+  void set_baby_code(std::string baby_code) { baby_code_ = baby_code; }
 
  private:
   void write_char(WRITE_REQ cmd);
@@ -75,6 +76,7 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   espbt::ESPBTUUID data_char_2_uuid_;
   espbt::ESPBTUUID data_char_3_uuid_;
   espbt::ESPBTUUID data_char_4_uuid_;
+  std::string baby_code_;
   uint16_t char_handle_1_;
   uint16_t cccd_1_;
   uint16_t char_handle_2_;

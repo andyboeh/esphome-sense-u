@@ -41,6 +41,11 @@ ble_client:
 senseu:
   - ble_client_id: my_senseu_ble
     id: my_senseu
+    # baby_code is optional. Needs to be retrieved during pairing phase.
+    # This allows using the Sense-U with multiple devices, e.g. at different
+    # locations.
+    
+    # baby_code: aabbccddeeff
 
 # Example configuration entry
 sensor:
