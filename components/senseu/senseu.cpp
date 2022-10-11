@@ -256,6 +256,7 @@ void SenseU::set_power_switch(bool state) {
     }
     this->pref_storage_.powered_on = state;
     this->store_preferences();
+    this->parent_->set_enabled(state);
 }
 
 void SenseU::write_char(WRITE_REQ cmd) {

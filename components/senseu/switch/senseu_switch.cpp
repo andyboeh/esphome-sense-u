@@ -10,7 +10,7 @@ namespace senseu {
 static const char *const TAG = "senseu.switch";
 
 void SenseUSwitch::setup() {
-
+    this->publish_state(true);
 }
 
 void SenseUSwitch::write_state(bool state) {
