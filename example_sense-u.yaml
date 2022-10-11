@@ -10,6 +10,11 @@ esp32:
   framework:
     type: arduino
 
+external_components:
+  - source: github://andyboeh/esphome-senseu
+    components: senseu
+
+
 # Enable logging
 logger:
 
