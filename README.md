@@ -4,7 +4,9 @@ This project aims to provide an ESPHome integration for the Sense-U baby monitor
 
 ## Status
 
-So far, the BLE protocol is being reverse-engineered. The available code allows for pairing and connecting, data parsing is still missing. Every reboot of the ESP requires re-pairing as the baby code / pairing status is not supported.
+The basics are working for this component. However, some functionality might be missing or might be unimplemented. Most importantly, it is not possible to disconnect from the sensor and to disable data processing.
+
+See the provided example file for details on how to set things up.
 
 ## Protocol
 
@@ -108,6 +110,7 @@ nothing happens with that
         0x02 => Alert
         0x03 => Nothing happens
         0x04 => Gesture
+           int(hex[5]) = LayStatus
         0x05 => Breath
            int(hex[5]) = Breath Rate
         0x07 => Activity

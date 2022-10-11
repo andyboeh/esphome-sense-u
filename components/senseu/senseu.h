@@ -4,6 +4,9 @@
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/core/preferences.h"
 
 #ifdef USE_ESP32
 
@@ -20,7 +23,6 @@ static const std::string DATA_CHAR_2_PREFIX = "01021922-9e06-a079-2e3f-";
 static const std::string DATA_CHAR_3_PREFIX = "01021923-9e06-a079-2e3f-";
 static const std::string DATA_CHAR_4_PREFIX = "01021925-9e06-a079-2e3f-";
 static uint8_t SET_UID_DATA[] = {0x69, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x35, 0x34, 0x33, 0x32, 0x31, 0x30, 0x00 };
-//static uint8_t SET_UID_DATA[] = {0x69, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x00 };
 
 enum WRITE_REQ {
   UID_DATA,
@@ -31,7 +33,16 @@ enum WRITE_REQ {
   TEMP_ALARM,
   KICKING_ALARM,
   BREATH_ALARM,
+  POWER_ON,
+  POWER_OFF,
 };
+
+struct SenseUStorage {
+  bool paired;
+  bool configured;
+  bool powered_on;
+  uint8_t baby_code[6];
+} PACKED;
 
 class SenseU : public esphome::ble_client::BLEClientNode, public Component {
  public:
@@ -43,16 +54,22 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   void set_breath_rate(sensor::Sensor *breath_rate) { breath_rate_ = breath_rate; }
   void set_temperature(sensor::Sensor *temperature) { temperature_ = temperature; }
   void set_humidity(sensor::Sensor *humidity) { humidity_ = humidity; }
+  void set_posture_sensor(text_sensor::TextSensor *posture) { posture_ = posture; }
+  void set_status_sensor(text_sensor::TextSensor *status) { status_ = status; }
+  void set_breath_alarm(binary_sensor::BinarySensor *breath_alarm ) { breath_alarm_ = breath_alarm; }
+  void set_posture_alarm(binary_sensor::BinarySensor *posture_alarm ) { posture_alarm_ = posture_alarm; }
+  void set_temperature_alarm(binary_sensor::BinarySensor *temperature_alarm) { temperature_alarm_ = temperature_alarm; }
+  void set_power_switch(bool state);
 
  private:
   void write_char(WRITE_REQ cmd);
   bool discover_characteristics();
   void write_notify_config_descriptor(bool enable);
   void enable_notifications();
- 
-  uint8_t baby_code_[6];
-  bool configured_{false};
-  bool paired_{false};
+  void store_preferences();
+
+  ESPPreferenceObject pref_;
+  SenseUStorage pref_storage_;
   espbt::ESPBTUUID base_service_uuid_;
   espbt::ESPBTUUID data_char_1_uuid_;
   espbt::ESPBTUUID data_char_2_uuid_;
@@ -69,6 +86,11 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   sensor::Sensor *breath_rate_{nullptr};
   sensor::Sensor *temperature_{nullptr};
   sensor::Sensor *humidity_{nullptr};
+  text_sensor::TextSensor *posture_{nullptr};
+  text_sensor::TextSensor *status_{nullptr};
+  binary_sensor::BinarySensor *breath_alarm_{nullptr};
+  binary_sensor::BinarySensor *posture_alarm_{nullptr};
+  binary_sensor::BinarySensor *temperature_alarm_{nullptr};
 };
 
 }  // namespace senseu

@@ -29,6 +29,18 @@ void SenseU::setup() {
   ESP_LOGD(TAG, "Data Char 2: %s", this->data_char_2_uuid_.to_string().c_str());
   ESP_LOGD(TAG, "Data Char 3: %s", this->data_char_3_uuid_.to_string().c_str());
   ESP_LOGD(TAG, "Data Char 4: %s", this->data_char_4_uuid_.to_string().c_str());
+  uint32_t hash = fnv1_hash("senseu_state_" + this->parent_->address_str());
+  this->pref_ = global_preferences->make_preference<SenseUStorage>(hash, true);
+  if(this->pref_.load(&this->pref_storage_)) {
+    ESP_LOGD(TAG, "Successfully restored preferences");
+  } else {
+    this->pref_storage_.paired = false;
+    this->pref_storage_.configured = false;
+    this->pref_storage_.powered_on = true;
+  }
+  if(this->status_) {
+    this->status_->publish_state("Setting up");
+  }
 }
 
 bool SenseU::discover_characteristics() {
@@ -150,7 +162,7 @@ void SenseU::enable_notifications() {
         ESP_LOGW(TAG, "Registering for notification failed on %s", this->data_char_1_uuid_.to_string().c_str());
       }
 
-      if(this->paired_) {
+      if(this->pref_storage_.paired) {
           status = esp_ble_gattc_register_for_notify(this->parent_->get_gattc_if(),
                                                           this->parent_->get_remote_bda(), this->char_handle_2_);
           if(status) {
@@ -186,7 +198,7 @@ void SenseU::write_notify_config_descriptor(bool enable) {
         ESP_LOGW(TAG, "esp_ble_gattc_write_char_descr error, status=%d", status);
     }
 
-    if(this->paired_) { 
+    if(this->pref_storage_.paired) { 
         status = esp_ble_gattc_write_char_descr(this->parent_->get_gattc_if(), this->parent_->get_conn_id(), 
                                                      this->cccd_2_, sizeof(notify_en), (uint8_t *) &notify_en, ESP_GATT_WRITE_TYPE_RSP,
                                                      ESP_GATT_AUTH_REQ_NONE);
@@ -212,6 +224,17 @@ void SenseU::write_notify_config_descriptor(bool enable) {
         }
     }
     
+}
+
+void SenseU::set_power_switch(bool state) {
+    if(this->node_state == espbt::ClientState::ESTABLISHED) {
+        if(state)
+            this->write_char(POWER_ON);
+        else
+            this->write_char(POWER_OFF);
+    }
+    this->pref_storage_.powered_on = state;
+    this->store_preferences();
 }
 
 void SenseU::write_char(WRITE_REQ cmd) {
@@ -249,7 +272,7 @@ void SenseU::write_char(WRITE_REQ cmd) {
 
         data[0] = 0x70;
         for(int i=0; i<6; i++)
-            data[i+1] = this->baby_code_[i];
+            data[i+1] = this->pref_storage_.baby_code[i];
         data[7] = (now >> 24) & 0xff;
         data[8] = (now >> 16) & 0xff;
         data[9] = (now >> 8) & 0xff;
@@ -267,6 +290,7 @@ void SenseU::write_char(WRITE_REQ cmd) {
         data[1] = 0x01;  
     break;
     case LEANING_TYPE:
+    case POWER_ON:
         len = 5;
 
         data[0] = 0xf5;
@@ -275,6 +299,14 @@ void SenseU::write_char(WRITE_REQ cmd) {
         data[3] = 0x03;
         data[4] = 0x00;
     break;
+    case POWER_OFF:
+        len = 5;
+
+        data[0] = 0xf5;
+        data[1] = 0xd2;
+        data[2] = 0x32;
+        data[3] = 0x03;
+        data[4] = 0x00;
     case TEMP_ALARM:
         len = 6;
 
@@ -312,11 +344,20 @@ void SenseU::write_char(WRITE_REQ cmd) {
     }
 }
 
+void SenseU::store_preferences() {
+    ESP_LOGD(TAG, "Saving Preferences...");
+    if(!this->pref_.save(&this->pref_storage_)) {
+        ESP_LOGW(TAG, "Error storing preferences!");
+    }
+}
+
 void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) {
   switch (event) {
     case ESP_GATTC_OPEN_EVT: {
       ESP_LOGD(TAG, "ESP_GATTC_OPEN_EVT");
-      //this->logged_in_ = false;
+      if(this->status_) {
+        this->status_->publish_state("Connecting");
+      }
       break;
     }
     case ESP_GATTC_DISCONNECT_EVT: {
@@ -329,6 +370,11 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
         this->temperature_->publish_state(NAN);
       if (this->humidity_ != nullptr)
         this->humidity_->publish_state(NAN);
+      if(this->posture_)
+        this->posture_->publish_state("Unavailable");
+      if(this->status_) {
+        this->status_->publish_state("Disconnected");
+      }
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
@@ -354,12 +400,16 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
           this->write_notify_config_descriptor(true);
       }
       ESP_LOGD(TAG, "status: %d, handle=0x%x", param->reg_for_notify.status, param->reg_for_notify.handle);
-      if(!this->paired_) {
+      if(!this->pref_storage_.paired) {
           this->write_char(UID_DATA);
-      } else if(!this->configured_ && param->reg_for_notify.handle == this->char_handle_4_) {
+      } else if(!this->pref_storage_.configured && param->reg_for_notify.handle == this->char_handle_4_) {
           this->write_char(RECONNECTION_TYPE);
       }
-      //this->update();
+      if(this->pref_storage_.paired && this->pref_storage_.configured && param->reg_for_notify.handle == this->char_handle_4_) {
+          // We reconnected to an already paired and configured device.
+          // Here, we should switch on power if required.
+          this->write_char(RECONNECTION_TYPE);
+      }
       break;
     }
     case ESP_GATTC_UNREG_FOR_NOTIFY_EVT: {
@@ -396,10 +446,12 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
         }
         case 0x68: {
           if(param->notify.value[1] == 0x00) {
-            this->paired_ = true;
+            this->pref_storage_.paired = true;
+            this->store_preferences();
             esp_ble_gap_disconnect(this->parent_->get_remote_bda());
             for(int i=0; i<6; i++)
-                this->baby_code_[i] = param->notify.value[i+2];
+                this->pref_storage_.baby_code[i] = param->notify.value[i+2];
+            this->store_preferences();
             //this->write_char(RECONNECTION_TYPE);
           }
           break;
@@ -408,15 +460,22 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
           if(param->notify.value[1] == 0x00) {
             ESP_LOGD(TAG, "Connected successfully!");
             this->write_char(GET_BATCH);
+            if(this->status_)
+                this->status_->publish_state("Connected");
+            
           } else if(param->notify.value[1] == 0x01) {
             ESP_LOGE(TAG, "Error connecting.");
           }
           break;
         case 0xc0:
-          this->write_char(LEANING_TYPE);
+          if(this->pref_storage_.powered_on) {
+              this->write_char(POWER_ON);
+          } else {
+              this->write_char(POWER_OFF);
+          }
           break;
         case 0xf5:
-          if(!this->configured_) {
+          if(!this->pref_storage_.configured) {
             this->write_char(TEMP_ALARM);
           }
           break;
@@ -427,47 +486,102 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
           write_char(BREATH_ALARM);
           break;
         case 0xb0:
-          this->configured_ = true;
+          this->pref_storage_.configured = true;
+          this->store_preferences();
           break;
         default: {
           uint8_t record_type = (param->notify.value[0] >> 3) & 0x1f;
           if(record_type == 0x06) {
             // battery
+            // [5] = flag
+            // [6] = percentage
           } else if(record_type == 0x08) {
             uint8_t status_type = ((param->notify.value[0] << 8 | param->notify.value[1]) >> 6) & 0x1f;
             switch(status_type) {
-            case 0x01:
+            case 0x01: {
                 ESP_LOGD(TAG, "Temperature Package");
+                float temperature = (param->notify.value[6] << 8 | param->notify.value[5]) / 10.0;
+                float humidity = param->notify.value[7];
+                if(this->temperature_)
+                    this->temperature_->publish_state(temperature);
+                if(this->humidity_)
+                    this->humidity_->publish_state(humidity);
                 break;
-            case 0x02:
+            }
+            case 0x02: {
                 ESP_LOGD(TAG, "Alert");
+                // [5] mode
+                //     ? 10: [9] posture
+                //     2: posture
+                //     3 || 4: [8-9] / 10.0 Temperature alert; 3 = high, 4 = low
+                //     7: [8-9] / 10.0 "-" [10-11] / 10.0; Temperature down
+                //     8: breath rate too fast
+                //     9: breath rate too slow
+                //     ? 10 || 11: breath reate too slow
+                // [6] notify
+                // [7] sleepstatus
+                // 
+                uint8_t mode = param->notify.value[5];
+                switch(mode) {
+                    case 0x02: // Posture
+                        if(this->posture_alarm_)
+                            this->posture_alarm_->publish_state(param->notify.value[6] > 0 ? true : false);
+                    break;
+                    case 0x03: // Too High
+                    case 0x04: // Too Low
+                    case 0x07: // Temperature Down
+                        if(this->temperature_alarm_)
+                            this->temperature_alarm_->publish_state(param->notify.value[6] > 0 ? true : false);
+                    break;
+                    case 0x08: // Breath Rate too fast
+                    case 0x09: // Breath Rate too slow
+                        if(this->breath_alarm_)
+                            this->breath_alarm_->publish_state(param->notify.value[6] > 0 ? true : false);
+                    break;
+                }
                 break;
+            }
             case 0x03:
+                // Sleep State!?
                 break;
-            case 0x04:
+            case 0x04: {
                 ESP_LOGD(TAG, "Gesture");
+                int status = param->notify.value[5];
+                std::string state;
+                if(status == 0)
+                  state = "on back";
+                else if(status == 1)
+                  state = "on belly";
+                else if(status == 2)
+                  state = "on left";
+                else if(status == 3)
+                  state = "on right";
+                else
+                  state = "Unknown";
+                if(this->posture_)
+                    this->posture_->publish_state(state);
                 break;
-            case 0x05:
+            }
+            case 0x05: {
                 ESP_LOGD(TAG, "Breath");
+                float rate = param->notify.value[5];
+                if(this->breath_rate_)
+                    this->breath_rate_->publish_state(rate);
+                // Alert if rate == 0 || rate > 60
                 break;
+            }
             case 0x07:
                 ESP_LOGD(TAG, "Activity");
+                // [5] status
                 break;
             case 0x08:
                 ESP_LOGD(TAG, "BlSignal");
+                // [5] Signal
                 break;
             }
           }
         } 
       }
-      /*
-      if (param->notify.handle != this->char_handle_)
-        break;
-
-      if (this->illuminance_ != nullptr && this->decoder_->has_light_level()) {
-        this->illuminance_->publish_state(this->decoder_->light_level_);
-      }
-      */
       break;
     }
     default:

@@ -1,0 +1,88 @@
+substitutions:
+  device_name: sense-u
+  friendly_name: Sense-U Baby Tracker
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: wemos_d1_mini32
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+# WiFi connection
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name} HS"
+    password: !secret Fallback_Hotspot
+    ap_timeout: 1min
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: AA:BB:CC:DD:EE:FF
+    id: my_senseu_ble
+
+senseu:
+  - ble_client_id: my_senseu_ble
+    id: my_senseu
+
+# Example configuration entry
+sensor:
+  - platform: senseu
+    id: my_senseu
+    breath_rate: 
+      name: Breath Rate
+    temperature: 
+      name: Temperature
+    humidity: 
+      name: Humidity
+  # Uptime sensor
+  - platform: uptime
+    name: ${friendly_name} Uptime
+  # WiFi Signal sensor
+  - platform: wifi_signal
+    name: ${friendly_name} Wifi Signal
+    update_interval: 60s
+    
+# Sync time with Home Assistant
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# Text sensors with general information
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: ${friendly_name} IP Address
+  - platform: senseu
+    id: my_senseu
+    posture:
+      name: Posture
+    status:
+      name: State
+
+binary_sensor:
+  - platform: senseu
+    id: my_senseu
+    breath:
+      name: Breath Alarm
+    posture:
+      name: Posture Alarm
+    temperature:
+      name: Temperature Alarm
+
+switch:
+  - platform: senseu
+    senseu_id: my_senseu
+    name: Power Switch
