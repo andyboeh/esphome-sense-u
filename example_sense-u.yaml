@@ -11,7 +11,7 @@ esp32:
     type: arduino
 
 external_components:
-  - source: github://andyboeh/esphome-senseu
+  - source: github://andyboeh/esphome-sense-u
     components: senseu
 
 
