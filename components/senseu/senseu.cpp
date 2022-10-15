@@ -329,6 +329,7 @@ void SenseU::write_char(WRITE_REQ cmd) {
         data[2] = 0x32;
         data[3] = 0x03;
         data[4] = 0x00;
+    break;
     case TEMP_ALARM:
         len = 6;
 
