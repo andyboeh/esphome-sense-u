@@ -10,7 +10,12 @@ namespace senseu {
 static const char *const TAG = "senseu.switch";
 
 void SenseUSwitch::setup() {
-    this->publish_state(true);
+    bool initial_state = this->get_initial_state().value_or(true);
+    if (initial_state) {
+        this->turn_on();
+    } else {
+        this->turn_off();
+    }
 }
 
 void SenseUSwitch::write_state(bool state) {

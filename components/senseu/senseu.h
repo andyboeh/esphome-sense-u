@@ -40,7 +40,6 @@ enum WRITE_REQ {
 struct SenseUStorage {
   bool paired;
   bool configured;
-  bool powered_on;
   uint8_t baby_code[6];
 } PACKED;
 
@@ -85,6 +84,7 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   uint16_t cccd_3_;
   uint16_t char_handle_4_;
   uint16_t cccd_4_;
+  bool power_state_{true};
   sensor::Sensor *breath_rate_{nullptr};
   sensor::Sensor *temperature_{nullptr};
   sensor::Sensor *humidity_{nullptr};

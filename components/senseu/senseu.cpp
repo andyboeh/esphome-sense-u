@@ -39,11 +39,23 @@ void SenseU::setup() {
   } else {
     this->pref_storage_.paired = false;
     this->pref_storage_.configured = false;
-    this->pref_storage_.powered_on = true;
   }
-  if(this->status_) {
+  if(this->status_)
     this->status_->publish_state("Setting up");
-  }
+  if (this->breath_rate_ != nullptr)
+    this->breath_rate_->publish_state(NAN);
+  if (this->temperature_ != nullptr)
+    this->temperature_->publish_state(NAN);
+  if (this->humidity_ != nullptr)
+    this->humidity_->publish_state(NAN);
+  if(this->posture_)
+    this->posture_->publish_state("Unavailable");
+  if(this->breath_alarm_)
+    this->breath_alarm_->publish_state(false);
+  if(this->posture_alarm_)
+    this->posture_alarm_->publish_state(false);
+  if(this->temperature_alarm_)
+    this->temperature_alarm_->publish_state(false);
   if(this->baby_code_.length() == 12) {
     this->pref_storage_.paired = true;
     this->pref_storage_.configured = true;
@@ -248,15 +260,15 @@ void SenseU::write_notify_config_descriptor(bool enable) {
 }
 
 void SenseU::set_power_switch(bool state) {
+    ESP_LOGD(TAG, "set_power_switch");
     if(this->node_state == espbt::ClientState::ESTABLISHED) {
         if(state)
             this->write_char(POWER_ON);
         else
             this->write_char(POWER_OFF);
     }
-    this->pref_storage_.powered_on = state;
-    this->store_preferences();
     this->parent_->set_enabled(state);
+    this->power_state_ = state;
 }
 
 void SenseU::write_char(WRITE_REQ cmd) {
@@ -381,11 +393,13 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
       if(this->status_) {
         this->status_->publish_state("Connecting");
       }
+      // This is required to retain the powered-off state during reboots
+      if(!this->power_state_)
+        this->parent_->set_enabled(false);
       break;
     }
     case ESP_GATTC_DISCONNECT_EVT: {
       ESP_LOGD(TAG, "ESP_GATTC_DISCONNECT_EVT");
-      //this->logged_in_ = false;
       this->node_state = espbt::ClientState::IDLE;
       if (this->breath_rate_ != nullptr)
         this->breath_rate_->publish_state(NAN);
@@ -395,9 +409,14 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
         this->humidity_->publish_state(NAN);
       if(this->posture_)
         this->posture_->publish_state("Unavailable");
-      if(this->status_) {
+      if(this->status_)
         this->status_->publish_state("Disconnected");
-      }
+      if(this->breath_alarm_)
+        this->breath_alarm_->publish_state(false);
+      if(this->posture_alarm_)
+        this->posture_alarm_->publish_state(false);
+      if(this->temperature_alarm_)
+        this->temperature_alarm_->publish_state(false);
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
@@ -494,11 +513,7 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
           }
           break;
         case 0xc0:
-          if(this->pref_storage_.powered_on) {
-              this->write_char(POWER_ON);
-          } else {
-              this->write_char(POWER_OFF);
-          }
+          this->write_char(POWER_ON);
           break;
         case 0xf5:
           if(!this->pref_storage_.configured) {
@@ -591,7 +606,7 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
             case 0x05: {
                 ESP_LOGD(TAG, "Breath");
                 float rate = param->notify.value[5];
-                if(this->breath_rate_)
+                if(this->breath_rate_ && rate < 200)
                     this->breath_rate_->publish_state(rate);
                 // Alert if rate == 0 || rate > 60
                 break;
