@@ -387,6 +387,9 @@ void SenseU::store_preferences() {
 }
 
 void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param) {
+  if(this->parent_->get_gattc_if() != gattc_if) // Event is not for us
+    return;
+
   switch (event) {
     case ESP_GATTC_OPEN_EVT: {
       ESP_LOGD(TAG, "ESP_GATTC_OPEN_EVT");
