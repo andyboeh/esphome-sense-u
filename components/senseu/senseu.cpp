@@ -402,6 +402,8 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
       break;
     }
     case ESP_GATTC_DISCONNECT_EVT: {
+      if(this->parent_->get_conn_id() != param->disconnect.conn_id)
+        return;
       ESP_LOGD(TAG, "ESP_GATTC_DISCONNECT_EVT");
       this->node_state = espbt::ClientState::IDLE;
       if (this->breath_rate_ != nullptr)
