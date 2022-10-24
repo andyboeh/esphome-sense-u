@@ -48,6 +48,10 @@ void SenseU::setup() {
     this->temperature_->publish_state(NAN);
   if (this->humidity_ != nullptr)
     this->humidity_->publish_state(NAN);
+  if (this->battery_level_ != nullptr)
+    this->battery_level_->publish_state(NAN);
+  if(this->battery_alarm_)
+    this->battery_alarm_->publish_state(false);
   if(this->posture_)
     this->posture_->publish_state("Unavailable");
   if(this->breath_alarm_)
@@ -412,6 +416,10 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
         this->temperature_->publish_state(NAN);
       if (this->humidity_ != nullptr)
         this->humidity_->publish_state(NAN);
+      if (this->battery_level_ != nullptr)
+        this->battery_level_->publish_state(NAN);
+      if(this->battery_alarm_)
+        this->battery_alarm_->publish_state(false);
       if(this->posture_)
         this->posture_->publish_state("Unavailable");
       if(this->status_)
@@ -537,12 +545,28 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
           break;
         default: {
           uint8_t record_type = (param->notify.value[0] >> 3) & 0x1f;
+          uint8_t status_type = ((param->notify.value[0] << 8 | param->notify.value[1]) >> 6) & 0x1f;
           if(record_type == 0x06) {
-            // battery
-            // [5] = flag
-            // [6] = percentage
+            ESP_LOGD(TAG, "Battery Package");
+            if(status_type == 0x01) {
+              float level = param->notify.value[6];
+              bool alarm = false;
+              if(param->notify.value[5] > 0)
+                alarm = true;
+
+              if(this->battery_level_)
+                this->battery_level_->publish_state(level);
+              if(this->battery_alarm_)
+                this->battery_alarm_->publish_state(alarm);
+              // battery
+              // [5] = flag
+              // [6] = percentage
+            } else if(status_type == 0x02) {
+              ESP_LOGD(TAG, "Battery Package: No bag");
+            } else if(status_type == 0x04) {
+              ESP_LOGD(TAG, "Battery Package: Bag");
+            }
           } else if(record_type == 0x08) {
-            uint8_t status_type = ((param->notify.value[0] << 8 | param->notify.value[1]) >> 6) & 0x1f;
             switch(status_type) {
             case 0x01: {
                 ESP_LOGD(TAG, "Temperature Package");

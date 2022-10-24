@@ -55,9 +55,11 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   void set_humidity(sensor::Sensor *humidity) { humidity_ = humidity; }
   void set_posture_sensor(text_sensor::TextSensor *posture) { posture_ = posture; }
   void set_status_sensor(text_sensor::TextSensor *status) { status_ = status; }
+  void set_battery_level(sensor::Sensor *battery_level) { battery_level_ = battery_level; }
   void set_breath_alarm(binary_sensor::BinarySensor *breath_alarm ) { breath_alarm_ = breath_alarm; }
   void set_posture_alarm(binary_sensor::BinarySensor *posture_alarm ) { posture_alarm_ = posture_alarm; }
   void set_temperature_alarm(binary_sensor::BinarySensor *temperature_alarm) { temperature_alarm_ = temperature_alarm; }
+  void set_battery_alarm(binary_sensor::BinarySensor *battery_alarm) { battery_alarm_ = battery_alarm; }
   void set_power_switch(bool state);
   void set_baby_code(std::string baby_code) { baby_code_ = baby_code; }
 
@@ -88,11 +90,13 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   sensor::Sensor *breath_rate_{nullptr};
   sensor::Sensor *temperature_{nullptr};
   sensor::Sensor *humidity_{nullptr};
+  sensor::Sensor *battery_level_{nullptr};
   text_sensor::TextSensor *posture_{nullptr};
   text_sensor::TextSensor *status_{nullptr};
   binary_sensor::BinarySensor *breath_alarm_{nullptr};
   binary_sensor::BinarySensor *posture_alarm_{nullptr};
   binary_sensor::BinarySensor *temperature_alarm_{nullptr};
+  binary_sensor::BinarySensor *battery_alarm_{nullptr};
 };
 
 }  // namespace senseu

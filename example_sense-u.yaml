@@ -57,6 +57,8 @@ sensor:
       name: Temperature
     humidity: 
       name: Humidity
+    battery_level:
+      name: Battery Level
   # Uptime sensor
   - platform: uptime
     name: ${friendly_name} Uptime
@@ -91,6 +93,8 @@ binary_sensor:
       name: Posture Alarm
     temperature:
       name: Temperature Alarm
+    battery:
+      name: Battery Alarm
 
 switch:
   - platform: senseu
