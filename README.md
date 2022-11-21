@@ -11,7 +11,7 @@ The basics are working for this component. However, some functionality might be 
 These steps assume that your Sense-U is **not** paired to an app/the base station. If it is paired, then the pairing is lost. Technically, it is possible to connect the sensor to app/base station and ESPHome, but not at the same time. See section "Sharing baby code".
 
   1. Add the required configuration to the YAML file - see [example_sense-u.yaml](example_sense-u.yaml) for a template. Do not provide a baby code.
-  2. Compile and upload, start log output. You will se a message similar to "Could not register UID, enable pairing mode and try again."
+  2. Compile and upload, start log output. You will see a message similar to "Could not register UID, enable pairing mode and try again."
   3. Enable pairing mode on the Sense-U button by double-shaking the sensor. It starts blinking.
   4. Observe the log, the next connection attempt should be successful.
 
@@ -30,3 +30,9 @@ If you have multiple ESPHome devices, you can also share the baby code.
 ## Protocol
 
 See a description on the BLE protocol in [protocol.md](protocol.md)
+
+## TODO
+
+  * Provide more examples how to handle alerts
+  * Improve battery sensor
+  * Investigate base station
