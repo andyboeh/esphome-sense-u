@@ -2,9 +2,12 @@
 
 This project aims to provide an ESPHome integration for the Sense-U baby monitor by directly communicating via BLE with the Sense-U button.
 
+There is now also support for replacing the firmware of the Base Station 2 with ESPHome, since the Base Station 2 is powered by an ESP32 module. See below for details.
+
 ## Status
 
 The basics are working for this component. However, some functionality might be missing or might be unimplemented. 
+The Base Station 2 is, apart from the temperature sensor, fully supported.
 
 ## Getting started
 
@@ -30,6 +33,88 @@ If you have multiple ESPHome devices, you can also share the baby code.
 ## Protocol
 
 See a description on the BLE protocol in [protocol.md](protocol.md)
+
+## Base Station 2
+
+The Base Station 2 can be converted to ESPHome. The device needs to be disassembled, inside you will find three pins labelled "IO0", "ESP32_RX" and "ESP32_TX". On another unpopulated header you will find 5V and GND pins. Use these pins for flashing, **do not connect USB**.
+
+If you want to make a backup first, you can do so by running `esptool.py`:
+```
+esptool.py -b 115200 --port /dev/ttyUSB0 read_flash 0x00000 0x400000 flash_4M.bin
+```
+
+An exemplary configuration file will follow soon, for the time being, this information should be sufficient:
+
+```
+output:
+  - platform: ledc
+    pin: GPIO4
+    id: buzzer
+
+  - platform: ledc
+    pin: GPIO17
+    id: status_output_green
+
+  - platform: ledc
+    pin: GPIO18
+    id: status_output_blue
+
+  - platform: ledc
+    pin: GPIO5
+    id: status_output_red
+
+  - platform: ledc
+    pin: GPIO27
+    id: main_output_blue
+
+  - platform: ledc
+    pin: GPIO32
+    id: main_output_green
+
+  - platform: ledc
+    pin: GPIO33
+    id: main_output_red
+
+switch:
+  - platform: template
+    turn_on_action:
+      - output.turn_on: buzzer
+      - output.ledc.set_frequency:
+          id: buzzer
+          frequency: "1000Hz"
+      - output.set_level:
+          id: buzzer
+          level: "50%"
+    turn_off_action:
+      - output.turn_off: buzzer
+    name: Piezo On
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO25
+      inverted: yes
+    name: "Reset Button"
+    id: reset_button
+
+  - platform: gpio
+    pin: GPIO14
+    id: touch_sensor
+    name: "Touch Sensor"
+
+light:
+  - platform: rgb
+    name: "Status Light"
+    red: status_output_red
+    green: status_output_green
+    blue: status_output_blue
+
+  - platform: rgb
+    name: "Main Light"
+    red: main_output_red
+    green: main_output_green
+    blue: main_output_blue
+```
 
 ## TODO
 
