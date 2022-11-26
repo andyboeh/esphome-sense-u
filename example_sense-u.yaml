@@ -1,6 +1,6 @@
 substitutions:
   device_name: sense-u
-  friendly_name: Sense-U Baby Tracker
+  friendly_name: Sense-U
 
 esphome:
   name: ${device_name}
@@ -35,7 +35,7 @@ wifi:
 esp32_ble_tracker:
 
 ble_client:
-  - mac_address: AA:BB:CC:DD:EE:FF
+  - mac_address: AA:BB:CC:DD:EE:FF #update with your Sense-U's MAC address
     id: my_senseu_ble
 
 senseu:
@@ -52,13 +52,13 @@ sensor:
   - platform: senseu
     id: my_senseu
     breath_rate: 
-      name: Breath Rate
+      name: ${friendly_name} Breath Rate
     temperature: 
-      name: Temperature
+      name: ${friendly_name} Temperature
     humidity: 
-      name: Humidity
+      name: ${friendly_name} Humidity
     battery_level:
-      name: Battery Level
+      name: ${friendly_name} Battery Level
   # Uptime sensor
   - platform: uptime
     name: ${friendly_name} Uptime
@@ -80,23 +80,23 @@ text_sensor:
   - platform: senseu
     id: my_senseu
     posture:
-      name: Posture
+      name: ${friendly_name} Posture
     status:
-      name: State
+      name: ${friendly_name} State
 
 binary_sensor:
   - platform: senseu
     id: my_senseu
     breath:
-      name: Breath Alarm
+      name: ${friendly_name} Breath Alarm
     posture:
-      name: Posture Alarm
+      name: ${friendly_name} Posture Alarm
     temperature:
-      name: Temperature Alarm
+      name: ${friendly_name} Temperature Alarm
     battery:
-      name: Battery Alarm
+      name: ${friendly_name} Battery Alarm
 
 switch:
   - platform: senseu
     senseu_id: my_senseu
-    name: Power Switch
+    name: ${friendly_name} Power Switch
