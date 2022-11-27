@@ -8,7 +8,7 @@ esphome:
 esp32:
   board: wemos_d1_mini32
   framework:
-    type: arduino
+    type: esp-idf
 
 external_components:
   - source: github://andyboeh/esphome-sense-u
