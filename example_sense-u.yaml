@@ -59,6 +59,8 @@ sensor:
       name: ${friendly_name} Humidity
     battery_level:
       name: ${friendly_name} Battery Level
+    connected:
+      name: ${friendly_name} Connected
   # Uptime sensor
   - platform: uptime
     name: ${friendly_name} Uptime

@@ -60,6 +60,7 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   void set_posture_alarm(binary_sensor::BinarySensor *posture_alarm ) { posture_alarm_ = posture_alarm; }
   void set_temperature_alarm(binary_sensor::BinarySensor *temperature_alarm) { temperature_alarm_ = temperature_alarm; }
   void set_battery_alarm(binary_sensor::BinarySensor *battery_alarm) { battery_alarm_ = battery_alarm; }
+  void set_connected_sensor(binary_sensor::BinarySensor *connected_sensor) { connected_sensor_ = connected_sensor; }
   void set_power_switch(bool state);
   void set_baby_code(std::string baby_code) { baby_code_ = baby_code; }
 
@@ -97,6 +98,7 @@ class SenseU : public esphome::ble_client::BLEClientNode, public Component {
   binary_sensor::BinarySensor *posture_alarm_{nullptr};
   binary_sensor::BinarySensor *temperature_alarm_{nullptr};
   binary_sensor::BinarySensor *battery_alarm_{nullptr};
+  binary_sensor::BinarySensor *connected_sensor_{nullptr};
 };
 
 }  // namespace senseu

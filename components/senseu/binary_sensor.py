@@ -14,6 +14,7 @@ from . import senseu
 CONF_POSTURE = "posture"
 CONF_BREATH = "breath"
 CONF_BATTERY = "battery"
+CONF_CONNECTED = "connected"
 
 CONFIG_SCHEMA = (
     cv.Schema(
@@ -23,6 +24,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_TEMPERATURE): binary_sensor.binary_sensor_schema(),
             cv.Optional(CONF_BREATH): binary_sensor.binary_sensor_schema(),
             cv.Optional(CONF_BATTERY): binary_sensor.binary_sensor_schema(),
+            cv.Optional(CONF_CONNECTED): binary_sensor.binary_sensor_schema(),
         }
     )
 )
@@ -46,3 +48,7 @@ async def to_code(config):
     if CONF_BATTERY in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_BATTERY])
         cg.add(parent.set_battery_alarm(sens))
+
+    if CONF_CONNECTED in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_CONNECTED])
+        cg.add(parent.set_connected_sensor(sens))

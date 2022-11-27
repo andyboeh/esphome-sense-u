@@ -60,6 +60,8 @@ void SenseU::setup() {
     this->posture_alarm_->publish_state(false);
   if(this->temperature_alarm_)
     this->temperature_alarm_->publish_state(false);
+  if(this->connected_sensor_)
+    this->connected_sensor_->publish_state(false);
   if(this->baby_code_.length() == 12) {
     this->pref_storage_.paired = true;
     this->pref_storage_.configured = true;
@@ -430,6 +432,8 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
         this->posture_alarm_->publish_state(false);
       if(this->temperature_alarm_)
         this->temperature_alarm_->publish_state(false);
+      if(this->connected_sensor_)
+        this->connected_sensor_->publish_state(false);
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
@@ -519,7 +523,9 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
             ESP_LOGD(TAG, "Connected successfully!");
             this->write_char(GET_BATCH);
             if(this->status_)
-                this->status_->publish_state("Connected");
+              this->status_->publish_state("Connected");
+            if(this->connected_sensor_)
+              this->connected_sensor_->publish_state(true);
             
           } else if(param->notify.value[1] == 0x01) {
             ESP_LOGE(TAG, "Error connecting.");
