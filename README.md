@@ -38,6 +38,8 @@ See a description on the BLE protocol in [protocol.md](protocol.md)
 
 The Base Station 2 can be converted to ESPHome. The device needs to be disassembled, inside you will find three pins labelled "IO0", "ESP32_RX" and "ESP32_TX". On another unpopulated header you will find 5V and GND pins. Use these pins for flashing, **do not connect USB**.
 
+**Attention!** Do not connect the base station via USB to a computer. Instead of USB data signals, the ESP32 Rx, Tx and IO0 signals are present on the Micro USB connector. You could use a specially prepared cable to flash the base station.
+
 If you want to make a backup first, you can do so by running `esptool.py`:
 ```
 esptool.py -b 115200 --port /dev/ttyUSB0 read_flash 0x00000 0x400000 flash_4M.bin
