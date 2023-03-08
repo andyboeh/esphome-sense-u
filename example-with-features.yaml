@@ -1,0 +1,388 @@
+esphome:
+  name: sense-u
+  friendly_name: Sense-U
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "[Generate]"
+
+ota:
+  password: "1d45b7655fa5e1444ac9d00ee5e81c4f"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "${device_name} HS"
+    password: "123456780"
+    ap_timeout: 1min
+
+captive_portal:
+
+external_components:
+  - source: github://andyboeh/esphome-sense-u
+    components: senseu
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: F1:7A:31:0E:EA:82
+    id: my_senseu_ble
+
+senseu:
+  - ble_client_id: my_senseu_ble
+    id: my_senseu
+    # baby_code is optional. Needs to be retrieved during pairing phase.
+    # This allows using the Sense-U with multiple devices, e.g. at different
+    # locations.
+    
+    #baby_code: 86eb0eb678f0
+
+globals:
+  - id: main_light_mode
+    type: std::string
+    restore_value: no
+  - id: alarm_time
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+# Example configuration entry
+sensor:
+  - platform: senseu
+    id: my_senseu
+    breath_rate: 
+      name: Breathing Rate
+      id: breathing_rate
+    temperature: 
+      name: Temperature
+      id: temperature
+    humidity: 
+      name: Humidity
+      id: humidity
+    battery_level:
+      name: Battery Level
+      id: battery
+  # Uptime sensor
+  - platform: uptime
+    name: Uptime
+    id: senseu_uptime
+  # WiFi Signal sensor
+  - platform: wifi_signal
+    name: Wifi Signal
+    update_interval: 60s
+    id: senseu_wifi_signal
+
+  - platform: template
+    id: main_light_logic
+    internal: true
+    update_interval: 2s
+    lambda: |-
+      if ((id(breathing_alarm).state == 1 or id(posture_alarm).state == 1 or id(temperature_alarm).state == 1)) {
+        if (id(main_light_mode) != "red_strobe") {
+          auto set_light = id(main_light).turn_on();
+          set_light.set_effect("Red Strobe");
+          set_light.perform();
+          id(main_light_mode) = "red_strobe";
+          id(alarm_time) = id(homeassistant_time).now().timestamp;
+        }
+      } else if (id(main_light_mode) == "yellow_pulse") {
+        id(buzzer_switch).turn_off();
+      } else if (id(battery_alarm).state == 1) {
+        if (id(main_light_mode) != "purple_dim") {
+          auto set_light = id(main_light).turn_on();
+          set_light.set_effect("none");
+          set_light.set_rgb(1.0,0.0,1.0);
+          set_light.set_transition_length(500);
+          set_light.set_brightness(0.5);
+          set_light.perform();
+          id(main_light_mode) = "purple_dim";
+          id(buzzer_switch).turn_off();
+        }
+      } else if (id(party_mode).state == 1){
+        if (id(main_light_mode) != "party"){
+          auto set_light = id(main_light).turn_on();
+          set_light.set_effect("Party Mode");
+          set_light.set_transition_length(500);
+          set_light.set_brightness(0.5);
+          set_light.perform();
+          id(main_light_mode) = "party";
+          id(buzzer_switch).turn_off();
+        }
+      } else if (id(night_light).state == 1){
+        if (id(main_light_mode) != "night_light"){
+          auto set_light = id(main_light).turn_on();
+          set_light.set_rgb(1.0,0.0,0.0);
+          set_light.set_effect("flicker");
+          set_light.set_transition_length(500);
+          set_light.set_brightness(0.25);
+          set_light.perform();
+          id(main_light_mode) = "night_light";
+          id(buzzer_switch).turn_off();
+        }
+      } else {
+        if (id(main_light_mode) != "off"){
+          auto set_light = id(main_light).turn_off();
+          set_light.perform();
+          id(main_light_mode) = "off";
+          id(buzzer_switch).turn_off();
+        }
+      }
+      return {};
+
+  - platform: template
+    id: buzzer_logic
+    internal: true
+    update_interval: 2s
+    lambda: |-
+      if(id(main_light_mode) == "red_strobe" and (id(homeassistant_time).now().timestamp > (id(alarm_time) + 30 )) and !id(buzzer_switch).state) {
+        id(buzzer_switch).turn_on();
+      }
+      return {};
+
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# Text sensors with general information
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+      id: ip
+  - platform: senseu
+    id: my_senseu
+    posture:
+      name: Posture
+      id: posture
+    status:
+      name: Status
+      id: senseu_status
+      on_value:
+        then:
+          - lambda: |-
+              if (id(senseu_status).state == "Connected") {
+                auto set_light = id(status_light).turn_on();
+                set_light.set_effect("none");
+                set_light.set_rgb(0.0,1.0,0.0);
+                set_light.set_transition_length(500);
+                set_light.set_brightness(0.5);
+                set_light.perform();
+              } else if (id(senseu_status).state == "Connecting") {
+                  auto set_light = id(status_light).turn_on();
+                  set_light.set_effect("Fast Pulse");
+                  set_light.set_rgb(0.0,0.0,1.0);
+                  set_light.perform();
+              } else if (id(senseu_status).state == "Disconnected") {
+                auto set_light = id(status_light).turn_on();
+                set_light.set_effect("none");
+                set_light.set_rgb(1.0,0.0,0.0);
+                set_light.set_transition_length(500);
+                set_light.set_brightness(0.5);
+                set_light.perform();   
+              } else {
+                auto set_light = id(status_light).turn_on();
+                set_light.set_effect("none");
+                set_light.set_rgb(1.0,0.0,0.0);
+                set_light.set_transition_length(500);
+                set_light.set_brightness(0.5);
+                set_light.perform();                 
+              }
+
+output:
+  - platform: ledc
+    pin: GPIO4
+    id: buzzer
+
+  - platform: ledc
+    pin: GPIO17
+    id: status_output_green
+
+  - platform: ledc
+    pin: GPIO18
+    id: status_output_blue
+
+  - platform: ledc
+    pin: GPIO5
+    id: status_output_red
+
+  - platform: ledc
+    pin: GPIO27
+    id: main_output_blue
+
+  - platform: ledc
+    pin: GPIO32
+    id: main_output_green
+
+  - platform: ledc
+    pin: GPIO33
+    id: main_output_red
+
+switch:
+  - platform: template
+    name: Buzzer Switch
+    id: buzzer_switch
+    internal: true
+    optimistic: true
+    turn_on_action:
+      - output.turn_on: buzzer
+      - output.ledc.set_frequency:
+          id: buzzer
+          frequency: "1000Hz"
+      - output.set_level:
+          id: buzzer
+          level: "50%"
+    turn_off_action:
+      - output.turn_off: buzzer
+
+  - platform: senseu
+    senseu_id: my_senseu
+    name: Power Switch
+    id: power_switch  
+  - platform: template
+    name: Party Mode
+    id: party_mode
+    optimistic: true
+    restore_mode: always_off
+    on_turn_on: 
+      then:
+        - switch.turn_off: night_light
+  - platform: template
+    name: Night Light
+    id: night_light
+    optimistic: true
+    restore_mode: always_off
+    on_turn_on: 
+      then:
+        - switch.turn_off: party_mode
+
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO25
+      inverted: yes
+    name: Reset Button
+    id: reset_button
+  
+  - platform: gpio
+    pin: GPIO14
+    id: touch_sensor
+    name: Touch Sensor
+    on_click: 
+      then:
+        - if:
+            condition:
+              not:
+                text_sensor.state:
+                  id: senseu_status
+                  state: 'Connected'
+            then:
+              - switch.turn_on: power_switch
+              - light.turn_on:
+                  id: status_light
+                  effect: "Medium Pulse"
+                  red: 100%
+                  green: 100%
+                  blue: 0%
+    on_multi_click:
+    - timing:
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at least 0.2s
+      then:
+        - switch.turn_off: power_switch
+        - light.turn_on:
+            id: status_light
+            effect: "Fast Pulse"
+            red: 100%
+            green: 100%
+            blue: 0%
+        - switch.turn_off: party_mode
+        - switch.turn_off: night_light
+  
+  - platform: senseu
+    id: my_senseu
+    breath:
+      name: Breathing Alarm
+      id: breathing_alarm
+    posture:
+      name: Posture Alarm
+      id: posture_alarm
+    temperature:
+      name: Temperature Alarm
+      id: temperature_alarm
+    battery:
+      name: Battery Alarm
+      id: battery_alarm
+
+light:
+  - platform: rgb
+    name: Status Light
+    id: status_light
+    internal: true
+    red: status_output_red
+    green: status_output_green
+    blue: status_output_blue
+    effects:
+      -  pulse:
+          name: "Slow Pulse"
+          transition_length: 3s
+          update_interval: 3.5s
+      -  pulse:
+          name: "Medium Pulse"
+          transition_length: 1.5s
+          update_interval: 1.5s
+      -  pulse:
+          name: "Fast Pulse"
+          transition_length: .5s
+          update_interval: .5s
+
+  - platform: rgb
+    name: Main Light
+    id: main_light
+    internal: true
+    red: main_output_red
+    green: main_output_green
+    blue: main_output_blue
+    effects:
+      -  pulse:
+          name: "Slow Pulse"
+          transition_length: 3s
+          update_interval: 4s
+      -  pulse:
+          name: "Medium Pulse"
+          transition_length: 1.5s
+          update_interval: 2s
+      -  pulse:
+          name: "Fast Pulse"
+          transition_length: .5s
+          update_interval: .5s
+      - flicker
+      - strobe:
+          name: Red Strobe
+          colors:
+            - state: true
+              brightness: 100%
+              red: 100%
+              green: 0%
+              blue: 0%
+              duration: 500ms  
+            - state: false
+              duration: 500ms   
+      - random:
+          name: Party Mode
+          transition_length: 5s
+          update_interval: 7s                                     
