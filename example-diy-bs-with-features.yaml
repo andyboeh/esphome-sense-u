@@ -1,0 +1,277 @@
+# This is for an WT32-ETH01 board with an active buzzer, two WS2812 LEDs and 
+# two buttons configured. No WiFi, Ehternet is used instead.
+
+substitutions:
+  device_name: sense-u-bs
+  friendly_name: Sense-U Baby Tracker Base Station
+
+esphome:
+  name: ${device_name}
+  on_boot:
+    then:
+      - switch.turn_off: switch_alarm
+      - switch.turn_off: switch_connected
+      - light.turn_off: main_light
+      - light.turn_off: status_light
+
+esp32:
+  board: esp-wrover-kit
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: ERROR
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+external_components:
+  - source: github://andyboeh/esphome-sense-u
+    components: senseu
+    refresh: 60s
+
+ethernet:
+  type: LAN8720
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  clk_mode: GPIO0_IN
+  phy_addr: 1
+  power_pin: GPIO16
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: AA:BB:CC:DD:EE:FF #update with your Sense-U's MAC address
+    id: my_senseu_ble
+
+senseu:
+  - ble_client_id: my_senseu_ble
+    id: my_senseu
+    # baby_code is optional. Needs to be retrieved during pairing phase.
+    # This allows using the Sense-U with multiple devices, e.g. at different
+    # locations.
+    
+    # baby_code: aabbccddeeff
+
+# Sensors
+sensor:
+  - platform: senseu
+    id: my_senseu
+    breath_rate: 
+      name: Breath Rate
+    temperature: 
+      name: Temperature
+    humidity: 
+      name: Humidity
+    battery_level:
+      name: Battery Level
+
+  # Uptime sensor
+  - platform: uptime
+    name: ${friendly_name} Uptime
+    
+# Sync time with Home Assistant
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: Europe/Vienna
+
+script:
+  - id: script_button_touch
+    mode: restart
+    then:
+      - delay: 1s
+      - if:
+          condition:
+            switch.is_on: senseu_power_switch
+          then:
+            - switch.turn_off: senseu_power_switch
+            - switch.turn_off: switch_connected
+          else:
+            - switch.turn_on: senseu_power_switch
+            - switch.turn_off: switch_connected
+
+  - id: script_notify_local
+    mode: restart
+    then:
+      - light.turn_on:
+          id: main_light
+          effect: pulse
+          red: 100%
+          green: 0%
+          blue: 0%
+      - delay: 20s
+      - repeat:
+          count: 1000
+          then:
+            - output.turn_on: buzzer
+            - delay: 0.5s
+            - output.turn_off: buzzer
+            - delay: 0.5s
+          
+
+# Text sensors with general information
+text_sensor:
+  - platform: senseu
+    id: my_senseu
+    posture:
+      name: Posture
+    status:
+      name: State
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO15
+      inverted: yes
+      mode: INPUT_PULLUP
+    name: "Reset Button"
+    id: reset_button
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+
+  - platform: gpio
+    pin: 
+      number: GPIO14
+      inverted: yes
+      mode: INPUT_PULLUP
+    id: touch_sensor
+    name: "Touch Sensor"
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      then:
+        - script.execute: script_button_touch
+    on_release:
+      then:
+        - script.stop: script_button_touch
+    on_click:
+      then:
+        - switch.turn_off: switch_alarm
+
+  - platform: senseu
+    id: my_senseu
+    breath:
+      name: Breath Alarm
+      on_press:
+        then:
+          - switch.turn_on: switch_alarm
+      on_release:
+        then:
+          - switch.turn_off: switch_alarm
+    posture:
+      name: Posture Alarm
+      on_press:
+        then:
+          - switch.turn_on: switch_alarm
+      on_release:
+        then:
+          - switch.turn_off: switch_alarm
+    temperature:
+      name: Temperature Alarm
+    battery:
+      name: Battery Alarm
+    connected:
+      name: Sense-U Connected
+      on_press:
+        then:
+          - switch.turn_on: switch_connected
+      on_release:
+        then:
+          - switch.turn_off: switch_connected
+
+switch:
+  - platform: senseu
+    senseu_id: my_senseu
+    name: Power Switch
+    id: senseu_power_switch
+
+  - platform: template
+    id: switch_connected
+    assumed_state: true
+    turn_on_action:
+      - if:
+          condition:
+            switch.is_on: senseu_power_switch
+          then:
+            - light.turn_on:
+                id: status_light
+                brightness: 20%
+                green: 100%
+                blue: 0%
+                red: 0%
+                effect: none
+    turn_off_action:
+      - if:
+          condition:
+            switch.is_on: senseu_power_switch
+          then:
+            - light.turn_on:
+                id: status_light
+                green: 0%
+                blue: 0%
+                red: 100%
+                effect: pulse
+          else:
+            - light.turn_on:
+                id: status_light
+                brightness: 20%
+                green: 0%
+                blue: 0%
+                red: 100%
+                effect: none
+
+  - platform: template
+    id: switch_alarm
+    assumed_state: true
+    turn_on_action:
+      - script.execute: script_notify_local
+    turn_off_action:
+      - script.stop: script_notify_local
+      - output.turn_off: buzzer
+      - light.turn_off: main_light
+
+# Factory Reset Button
+button:
+  - platform: factory_reset
+    name: Restart with Factory Default Settings
+
+# Configure the output
+output:
+  - platform: gpio
+    pin: 
+      number: GPIO33
+      inverted: no
+    id: buzzer
+
+light:
+  - platform: neopixelbus
+    variant: WS2812
+    pin: GPIO12
+    num_leds: 2
+    name: "Status Lights"
+    id: status_lights
+  - platform: partition
+    name: "Status Light"
+    id: status_light
+    segments:
+      - id: status_lights
+        from: 0
+        to: 0
+    effects:
+      - pulse:
+  - platform: partition
+    name: "Main Light"
+    id: main_light
+    segments:
+      - id: status_lights
+        from: 1
+        to: 1
+    effects:
+      - pulse:

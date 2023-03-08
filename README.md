@@ -18,6 +18,8 @@ These steps assume that your Sense-U is **not** paired to an app/the base statio
   3. Enable pairing mode on the Sense-U button by double-shaking the sensor. It starts blinking.
   4. Observe the log, the next connection attempt should be successful.
 
+Once you've got the basics set up, you can use on of the other provided example files to add features like local alarm.
+
 ## Sharing baby code
 
 The pairing procedure is not a pairing at the BLE level, but rather at the application level. The Sense-U generates a Baby Code that needs to be provided during initialization. 

@@ -1,0 +1,296 @@
+substitutions:
+  device_name: sense-u-bs-linz
+  friendly_name: Sense-U Baby Tracker Base Station
+
+esphome:
+  name: ${device_name}
+  on_boot:
+    then:
+      - switch.turn_off: switch_alarm
+      - switch.turn_off: switch_connected
+
+esp32:
+  board: esp-wrover-kit
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+  level: ERROR
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+external_components:
+  - source: github://andyboeh/esphome-sense-u
+    components: senseu
+    refresh: 60s
+
+ota:
+
+#web_server:
+#  local: true
+
+# WiFi connection
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name} HS"
+    password: !secret Fallback_Hotspot
+    ap_timeout: 1min
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: AA:BB:CC:DD:EE:FF #update with your Sense-U's MAC address
+    id: my_senseu_ble
+
+senseu:
+  - ble_client_id: my_senseu_ble
+    id: my_senseu
+    # baby_code is optional. Needs to be retrieved during pairing phase.
+    # This allows using the Sense-U with multiple devices, e.g. at different
+    # locations.
+    
+    # baby_code: aabbccddeeff
+
+# Sensors
+sensor:
+  - platform: senseu
+    id: my_senseu
+    breath_rate: 
+      name: Breath Rate
+    temperature: 
+      name: Temperature
+    humidity: 
+      name: Humidity
+    battery_level:
+      name: Battery Level
+
+  # Uptime sensor
+  - platform: uptime
+    name: ${friendly_name} Uptime
+
+  # WiFi Signal sensor
+  - platform: wifi_signal
+    name: ${friendly_name} Wifi Signal
+    update_interval: 60s
+    
+# Sync time with Home Assistant
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: Europe/Vienna
+
+script:
+  - id: script_button_touch
+    mode: restart
+    then:
+      - delay: 1s
+      - if:
+          condition:
+            switch.is_on: senseu_power_switch
+          then:
+            - switch.turn_off: senseu_power_switch
+            - switch.turn_off: switch_connected
+          else:
+            - switch.turn_on: senseu_power_switch
+            - switch.turn_off: switch_connected
+
+  - id: script_notify_local
+    mode: restart
+    then:
+      - light.turn_on:
+          id: main_light
+          effect: pulse
+          red: 100%
+          green: 0%
+          blue: 0%
+      - delay: 20s
+      - repeat:
+          count: 1000
+          then:
+            - output.turn_on: buzzer
+            - output.ledc.set_frequency:
+                id: buzzer
+                frequency: "1000Hz"
+            - output.set_level:
+                id: buzzer
+                level: "75%"
+            - delay: 0.5s
+            - output.turn_off: buzzer
+            - delay: 0.5s
+          
+
+# Text sensors with general information
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: ${friendly_name} IP Address
+
+  - platform: senseu
+    id: my_senseu
+    posture:
+      name: Posture
+    status:
+      name: State
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO25
+      inverted: yes
+    name: "Reset Button"
+    id: reset_button
+
+  - platform: gpio
+    pin: GPIO14
+    id: touch_sensor
+    name: "Touch Sensor"
+    on_press:
+      then:
+        - script.execute: script_button_touch
+    on_release:
+      then:
+        - script.stop: script_button_touch
+    on_click:
+      then:
+        - switch.turn_off: switch_alarm
+
+  - platform: senseu
+    id: my_senseu
+    breath:
+      name: Breath Alarm
+      on_press:
+        then:
+          - switch.turn_on: switch_alarm
+      on_release:
+        then:
+          - switch.turn_off: switch_alarm
+    posture:
+      name: Posture Alarm
+      on_press:
+        then:
+          - switch.turn_on: switch_alarm
+      on_release:
+        then:
+          - switch.turn_off: switch_alarm
+    temperature:
+      name: Temperature Alarm
+    battery:
+      name: Battery Alarm
+    connected:
+      name: Sense-U Connected
+      on_press:
+        then:
+          - switch.turn_on: switch_connected
+      on_release:
+        then:
+          - switch.turn_off: switch_connected
+
+switch:
+  - platform: senseu
+    senseu_id: my_senseu
+    name: Power Switch
+    id: senseu_power_switch
+
+  - platform: template
+    id: switch_connected
+    assumed_state: true
+    turn_on_action:
+      - if:
+          condition:
+            switch.is_on: senseu_power_switch
+          then:
+            - light.turn_on:
+                id: status_light
+                brightness: 20%
+                green: 100%
+                blue: 0%
+                red: 0%
+                effect: none
+    turn_off_action:
+      - if:
+          condition:
+            switch.is_on: senseu_power_switch
+          then:
+            - light.turn_on:
+                id: status_light
+                green: 0%
+                blue: 0%
+                red: 100%
+                effect: pulse
+          else:
+            - light.turn_on:
+                id: status_light
+                brightness: 20%
+                green: 0%
+                blue: 0%
+                red: 100%
+                effect: none
+
+  - platform: template
+    id: switch_alarm
+    assumed_state: true
+    turn_on_action:
+      - script.execute: script_notify_local
+    turn_off_action:
+      - script.stop: script_notify_local
+      - output.turn_off: buzzer
+      - light.turn_off: main_light
+
+# Reset Button
+button:
+  - platform: factory_reset
+    name: Restart with Factory Default Settings
+
+# Configure the output
+output:
+  - platform: ledc
+    pin: GPIO4
+    id: buzzer
+
+  - platform: ledc
+    pin: GPIO17
+    id: status_output_green
+
+  - platform: ledc
+    pin: GPIO18
+    id: status_output_blue
+
+  - platform: ledc
+    pin: GPIO5
+    id: status_output_red
+
+  - platform: ledc
+    pin: GPIO27
+    id: main_output_blue
+
+  - platform: ledc
+    pin: GPIO32
+    id: main_output_green
+
+  - platform: ledc
+    pin: GPIO33
+    id: main_output_red
+
+light:
+  - platform: rgb
+    name: "Status Light"
+    red: status_output_red
+    green: status_output_green
+    blue: status_output_blue
+    id: status_light
+    effects:
+      - pulse:
+
+  - platform: rgb
+    name: "Main Light"
+    red: main_output_red
+    green: main_output_green
+    blue: main_output_blue
+    id: main_light
+    effects:
+      - pulse:
