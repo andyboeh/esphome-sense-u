@@ -4,6 +4,8 @@ This project aims to provide an ESPHome integration for the Sense-U baby monitor
 
 There is now also support for replacing the firmware of the Base Station 2 with ESPHome, since the Base Station 2 is powered by an ESP32 module. See below for details.
 
+If you like my work, consider sponsoring this project via [Github Sponsors](https://github.com/sponsors/andyboeh) or by acquiring one of my [Amazon Wishlist](https://www.amazon.de/hz/wishlist/ls/ROO2X0G63PCT?ref_=wl_share) items.
+
 ## Status
 
 The basics are working for this component. However, some functionality might be missing or might be unimplemented. 
