@@ -29,7 +29,7 @@ void SenseU::setup() {
   ESP_LOGD(TAG, "Data Char 2: %s", this->data_char_2_uuid_.to_string().c_str());
   ESP_LOGD(TAG, "Data Char 3: %s", this->data_char_3_uuid_.to_string().c_str());
   ESP_LOGD(TAG, "Data Char 4: %s", this->data_char_4_uuid_.to_string().c_str());
-  uint32_t hash = fnv1_hash("senseu_state_" + this->parent_->address_str());
+  uint32_t hash = fnv1_hash("senseu_state_" + addr);
   this->pref_ = global_preferences->make_preference<SenseUStorage>(hash, true);
   if(this->pref_.load(&this->pref_storage_)) {
     ESP_LOGD(TAG, "Successfully restored preferences");
@@ -380,7 +380,7 @@ void SenseU::write_char(WRITE_REQ cmd) {
     auto status = esp_ble_gattc_write_char(this->parent_->get_gattc_if(), this->parent_->get_conn_id(), 
           chr, len, data_ptr, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NONE);
     if(status) {
-          ESP_LOGW(TAG, "[%s] esp_ble_gattc_write_char failed, status=%d", this->parent_->address_str().c_str(),
+          ESP_LOGW(TAG, "[%s] esp_ble_gattc_write_char failed, status=%d", this->parent_->address_str(),
                status);
     }
 }
@@ -491,7 +491,7 @@ void SenseU::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc
          param->notify.handle != this->char_handle_3_ && param->notify.handle != this->char_handle_4_)
           break;
       for(int i=0; i<param->notify.value_len; i++) {
-        ESP_LOGD(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value[%d]=0x%x", this->parent_->address_str().c_str(),
+        ESP_LOGD(TAG, "[%s] ESP_GATTC_NOTIFY_EVT: handle=0x%x, value[%d]=0x%x", this->parent_->address_str(),
                param->notify.handle, i, param->notify.value[i]);
       }
       switch(param->notify.value[0]) {
