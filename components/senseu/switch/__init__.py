@@ -10,9 +10,8 @@ CODEOWNERS = ["@andyboeh"]
 
 SenseUSwitch = senseu_ns.class_("SenseUSwitch", switch.Switch, cg.Component)
 
-CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend(
+CONFIG_SCHEMA = switch.switch_schema(SenseUSwitch).extend(
     {
-        cv.GenerateID(): cv.declare_id(SenseUSwitch),
         cv.GenerateID(CONF_SENSEU_ID): cv.use_id(senseu),
     }
 ).extend(cv.COMPONENT_SCHEMA)
